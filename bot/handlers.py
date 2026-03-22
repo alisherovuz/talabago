@@ -16,7 +16,8 @@ from bot.keyboards import (
     course_keyboard,
     skip_keyboard,
     broadcast_confirm_keyboard,
-    sample_keyboard
+    sample_keyboard,
+    doc_confirm_keyboard
 )
 from config.settings import settings
 from services.ai_service import ai_service
@@ -27,18 +28,17 @@ router = Router()
 
 # Narxlar
 PRICES = {
-    "referat": 15000,
-    "kurs": 30000,
-    "diplom": 50000,
-    "prezentatsiya": 10000
+    "referat": 7000,
+    "kurs": 15000,
 }
 
 TYPE_NAMES = {
     "referat": "Referat",
     "kurs": "Kurs ishi",
-    "diplom": "Diplom ishi",
-    "prezentatsiya": "Prezentatsiya"
 }
+
+# Coming soon
+COMING_SOON = ["diplom", "prezentatsiya"]
 
 LANG_NAMES = {
     "uz": "O'zbekcha",
@@ -64,6 +64,10 @@ class OrderState(StatesGroup):
 class BroadcastState(StatesGroup):
     entering_message = State()
     confirming = State()
+
+
+class AdminState(StatesGroup):
+    replacing_file = State()
 
 
 # ==================== /start — REGISTRATION ====================
@@ -101,10 +105,10 @@ async def show_main_menu(message: Message):
 🎓 <b>TalabaGo</b> ga xush kelibsiz!
 
 Men sizga ilmiy ishlar yozishda yordam beraman:
-📝 Referat — 15,000 so'm
-📚 Kurs ishi — 30,000 so'm
-🎓 Diplom ishi — 50,000 so'm
-📊 Prezentatsiya — 10,000 so'm
+📝 Referat — 7,000 so'm
+📚 Kurs ishi — 15,000 so'm
+🎓 Diplom ishi — Tez kunda
+📊 Prezentatsiya — Tez kunda
 
 Tez, sifatli va arzon! 🚀
 """
@@ -455,6 +459,17 @@ async def new_order(callback: CallbackQuery, state: FSMContext):
 @router.callback_query(F.data.startswith("type_"))
 async def choose_type(callback: CallbackQuery, state: FSMContext):
     paper_type = callback.data.replace("type_", "")
+    
+    # Coming soon check
+    if paper_type == "coming_soon":
+        await callback.answer("🔜 Bu xizmat tez kunda ishga tushadi!", show_alert=True)
+        return
+    
+    # Check if paper type is valid
+    if paper_type not in PRICES:
+        await callback.answer("⚠️ Noto'g'ri tanlov", show_alert=True)
+        return
+    
     await state.update_data(paper_type=paper_type)
     await state.set_state(OrderState.entering_topic)
     
@@ -589,10 +604,14 @@ async def admin_approve_payment(callback: CallbackQuery):
     
     await db_service.update_order_status(order_id, "paid")
     
+    # Userga xabar
     progress_msg = await callback.bot.send_message(
         chat_id=user_id,
         text="🔄 <b>Ishlanmoqda...</b>\n\n⏳ AI yozmoqda...\n⬜ DOCX tayyorlanmoqda..."
     )
+    
+    # Adminga xabar
+    admin_progress = await callback.message.reply("⏳ AI ishlamoqda...")
     
     order = await db_service.get_order_by_id(order_id)
     await db_service.update_order_status(order_id, "processing")
@@ -617,26 +636,32 @@ async def admin_approve_payment(callback: CallbackQuery):
         
         await db_service.complete_order(order_id, word_count, page_count)
         
+        await progress_msg.edit_text("🔄 <b>Ishlanmoqda...</b>\n\n✅ AI yozdi\n✅ DOCX tayyor\n⏳ Admin tekshirmoqda...")
+        
+        # Adminga fayl yuborish (tekshirish uchun)
         doc_file = FSInputFile(file_path)
-        await progress_msg.delete()
+        await admin_progress.delete()
         
         await callback.bot.send_document(
-            chat_id=user_id,
+            chat_id=settings.ADMIN_ID,
             document=doc_file,
-            caption=f"🎉 <b>Tayyor!</b>\n\n"
+            caption=f"📄 <b>Tekshirish uchun:</b>\n\n"
+                    f"🆔 Buyurtma: #{order_id}\n"
+                    f"👤 User ID: {user_id}\n"
                     f"📝 {TYPE_NAMES.get(order.paper_type.value, '?')}\n"
                     f"📖 {order.topic[:50]}...\n"
                     f"📄 {page_count} bet | {word_count} so'z\n\n"
-                    f"Rahmat! TalabaGo bilan! 🚀"
+                    f"✅ Userga yuborish yoki 🔄 Yangi fayl yuklash",
+            reply_markup=doc_confirm_keyboard(order_id, user_id)
         )
         
-        await callback.message.edit_caption(callback.message.caption + "\n\n✅ <b>BAJARILDI!</b>")
+        await callback.message.edit_caption(callback.message.caption + "\n\n⏳ <b>AI tayyor, tekshirish kutilmoqda...</b>")
         
     except Exception as e:
-        await progress_msg.edit_text(f"❌ Xatolik: {str(e)}")
+        await progress_msg.edit_text(f"❌ Xatolik yuz berdi. Admin hal qiladi.")
         await callback.message.edit_caption(callback.message.caption + f"\n\n❌ <b>XATOLIK:</b> {str(e)}")
     
-    await callback.answer("✅ Tasdiqlandi!")
+    await callback.answer("✅ AI tayyor! Tekshiring.")
 
 
 @router.callback_query(F.data.startswith("pay_no_"))
@@ -661,6 +686,101 @@ async def admin_reject_payment(callback: CallbackQuery):
     await callback.answer("❌ Rad etildi")
 
 
+# ==================== DOCUMENT CONFIRMATION ====================
+
+@router.callback_query(F.data.startswith("doc_ok_"))
+async def admin_send_to_user(callback: CallbackQuery):
+    """Admin approves document and sends to user."""
+    if callback.from_user.id != settings.ADMIN_ID:
+        await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
+        return
+    
+    parts = callback.data.split("_")
+    order_id = int(parts[2])
+    user_id = int(parts[3])
+    
+    order = await db_service.get_order_by_id(order_id)
+    
+    # Get the document from this message
+    document = callback.message.document
+    
+    if document:
+        await callback.bot.send_document(
+            chat_id=user_id,
+            document=document.file_id,
+            caption=f"🎉 <b>Tayyor!</b>\n\n"
+                    f"📝 {TYPE_NAMES.get(order.paper_type.value, '?')}\n"
+                    f"📖 {order.topic[:50]}...\n"
+                    f"📄 {order.page_count} bet | {order.word_count} so'z\n\n"
+                    f"Rahmat! TalabaGo bilan! 🚀"
+        )
+        
+        await callback.message.edit_caption(
+            callback.message.caption + "\n\n✅ <b>USERGA YUBORILDI!</b>"
+        )
+        await callback.answer("✅ Userga yuborildi!")
+    else:
+        await callback.answer("❌ Fayl topilmadi", show_alert=True)
+
+
+@router.callback_query(F.data.startswith("doc_replace_"))
+async def admin_replace_file(callback: CallbackQuery, state: FSMContext):
+    """Admin wants to replace the document."""
+    if callback.from_user.id != settings.ADMIN_ID:
+        await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
+        return
+    
+    parts = callback.data.split("_")
+    order_id = int(parts[2])
+    user_id = int(parts[3])
+    
+    await state.set_state(AdminState.replacing_file)
+    await state.update_data(replace_order_id=order_id, replace_user_id=user_id)
+    
+    await callback.message.reply(
+        "📤 <b>Yangi faylni yuboring</b>\n\n"
+        f"🆔 Buyurtma: #{order_id}\n"
+        f"👤 User ID: {user_id}\n\n"
+        "⚠️ Faqat .docx fayl yuboring!"
+    )
+    await callback.answer()
+
+
+@router.message(AdminState.replacing_file, F.document)
+async def receive_replacement_file(message: Message, state: FSMContext):
+    """Receive replacement file from admin."""
+    if message.from_user.id != settings.ADMIN_ID:
+        return
+    
+    data = await state.get_data()
+    order_id = data.get('replace_order_id')
+    user_id = data.get('replace_user_id')
+    
+    if not order_id or not user_id:
+        await message.answer("❌ Xatolik. Qaytadan urinib ko'ring.")
+        await state.clear()
+        return
+    
+    order = await db_service.get_order_by_id(order_id)
+    
+    # Send to user
+    await message.bot.send_document(
+        chat_id=user_id,
+        document=message.document.file_id,
+        caption=f"🎉 <b>Tayyor!</b>\n\n"
+                f"📝 {TYPE_NAMES.get(order.paper_type.value, '?')}\n"
+                f"📖 {order.topic[:50]}...\n\n"
+                f"Rahmat! TalabaGo bilan! 🚀"
+    )
+    
+    await message.answer(
+        f"✅ <b>Yangi fayl userga yuborildi!</b>\n\n"
+        f"🆔 Buyurtma: #{order_id}\n"
+        f"👤 User ID: {user_id}"
+    )
+    await state.clear()
+
+
 # ==================== NAVIGATION ====================
 
 @router.callback_query(F.data == "back_to_menu")
@@ -670,10 +790,10 @@ async def back_to_menu(callback: CallbackQuery, state: FSMContext):
 🎓 <b>TalabaGo</b> ga xush kelibsiz!
 
 Men sizga ilmiy ishlar yozishda yordam beraman:
-📝 Referat — 15,000 so'm
-📚 Kurs ishi — 30,000 so'm
-🎓 Diplom ishi — 50,000 so'm
-📊 Prezentatsiya — 10,000 so'm
+📝 Referat — 7,000 so'm
+📚 Kurs ishi — 15,000 so'm
+🎓 Diplom ishi — Tez kunda
+📊 Prezentatsiya — Tez kunda
 
 Tez, sifatli va arzon! 🚀
 """
@@ -713,10 +833,10 @@ async def show_help(callback: CallbackQuery):
 4️⃣ To'lang va yuklab oling
 
 <b>Narxlar:</b>
-📝 Referat — 15,000 so'm
-📚 Kurs ishi — 30,000 so'm
-🎓 Diplom — 50,000 so'm
-📊 Prezentatsiya — 10,000 so'm
+📝 Referat — 7,000 so'm
+📚 Kurs ishi — 15,000 so'm
+🎓 Diplom — Tez kunda
+📊 Prezentatsiya — Tez kunda
 
 <b>Aloqa:</b> @TalabaGo_support
 """

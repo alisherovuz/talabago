@@ -12,10 +12,10 @@ def main_menu_keyboard():
 
 def paper_type_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="📝 Referat — 15,000 so'm", callback_data="type_referat")],
-        [InlineKeyboardButton(text="📚 Kurs ishi — 30,000 so'm", callback_data="type_kurs")],
-        [InlineKeyboardButton(text="🎓 Diplom ishi — 50,000 so'm", callback_data="type_diplom")],
-        [InlineKeyboardButton(text="📊 Prezentatsiya — 10,000 so'm", callback_data="type_prezentatsiya")],
+        [InlineKeyboardButton(text="📝 Referat — 7,000 so'm", callback_data="type_referat")],
+        [InlineKeyboardButton(text="📚 Kurs ishi — 15,000 so'm", callback_data="type_kurs")],
+        [InlineKeyboardButton(text="🎓 Diplom ishi — Tez kunda", callback_data="type_coming_soon")],
+        [InlineKeyboardButton(text="📊 Prezentatsiya — Tez kunda", callback_data="type_coming_soon")],
         [InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_menu")]
     ])
 
@@ -112,4 +112,14 @@ def sample_keyboard():
         [InlineKeyboardButton(text="⬇️ Namunani yuklash", callback_data="download_sample")],
         [InlineKeyboardButton(text="📝 Buyurtma berish", callback_data="new_order")],
         [InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_menu")]
+    ])
+
+
+def doc_confirm_keyboard(order_id: int, user_id: int):
+    """Admin approves or replaces the generated document."""
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [
+            InlineKeyboardButton(text="✅ Userga yuborish", callback_data=f"doc_ok_{order_id}_{user_id}"),
+            InlineKeyboardButton(text="🔄 Fayl almashtirish", callback_data=f"doc_replace_{order_id}_{user_id}")
+        ]
     ])
