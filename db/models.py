@@ -45,6 +45,7 @@ class Order(Base):
     topic = Column(String(500), nullable=False)
     paper_type = Column(Enum(PaperType), nullable=False)
     language = Column(String(10), default="uz")
+    requested_pages = Column(Integer, default=10)  # User-selected page count
     status = Column(Enum(OrderStatus), default=OrderStatus.pending)
     price = Column(Integer, nullable=False)
     file_url = Column(String(500))

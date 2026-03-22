@@ -32,7 +32,7 @@ class DBService:
             
             return user
     
-    async def create_order(self, telegram_id: int, topic: str, paper_type: str, language: str, price: int):
+    async def create_order(self, telegram_id: int, topic: str, paper_type: str, language: str, price: int, pages: int = 10):
         async with async_session() as session:
             # Get user
             result = await session.execute(
@@ -51,6 +51,7 @@ class DBService:
                 topic=topic,
                 paper_type=PaperType(paper_type),
                 language=language,
+                requested_pages=pages,
                 price=price,
                 status=OrderStatus.pending
             )

@@ -30,6 +30,34 @@ def language_keyboard():
     ])
 
 
+def pages_keyboard(paper_type: str):
+    """Page count options based on paper type."""
+    if paper_type == "referat":
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📄 14 bet", callback_data="pages_14"),
+                InlineKeyboardButton(text="📄 17 bet", callback_data="pages_17"),
+            ],
+            [
+                InlineKeyboardButton(text="📄 20 bet", callback_data="pages_20"),
+                InlineKeyboardButton(text="📄 25 bet", callback_data="pages_25"),
+            ],
+            [InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_menu")]
+        ])
+    else:  # kurs ishi
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📄 25 bet", callback_data="pages_25"),
+                InlineKeyboardButton(text="📄 30 bet", callback_data="pages_30"),
+            ],
+            [
+                InlineKeyboardButton(text="📄 35 bet", callback_data="pages_35"),
+                InlineKeyboardButton(text="📄 40 bet", callback_data="pages_40"),
+            ],
+            [InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_menu")]
+        ])
+
+
 def confirm_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="✅ Tasdiqlash", callback_data="confirm_order")],

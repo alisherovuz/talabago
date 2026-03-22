@@ -6,7 +6,7 @@ class AIService:
     def __init__(self):
         self.client = anthropic.Anthropic(api_key=settings.ANTHROPIC_API_KEY)
     
-    async def generate_paper(self, topic: str, paper_type: str, language: str) -> str:
+    async def generate_paper(self, topic: str, paper_type: str, language: str, pages: int = None) -> str:
         """Generate professional university-level academic paper."""
         
         # Configuration for each paper type
@@ -50,6 +50,13 @@ class AIService:
         }
         
         config = type_configs.get(paper_type, type_configs["referat"])
+        
+        # Override with user-selected page count
+        if pages:
+            config["pages"] = str(pages)
+            # Calculate approximate word count (250 words per page)
+            word_count = pages * 250
+            config["words"] = f"{word_count - 200}-{word_count + 200}"
         
         # Language settings
         if language == "uz":

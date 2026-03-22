@@ -8,6 +8,7 @@ from bot.keyboards import (
     main_menu_keyboard,
     paper_type_keyboard,
     language_keyboard,
+    pages_keyboard,
     back_keyboard,
     confirm_keyboard,
     payment_keyboard,
@@ -56,6 +57,7 @@ class OrderState(StatesGroup):
     choosing_type = State()
     entering_topic = State()
     choosing_language = State()
+    choosing_pages = State()
     confirming = State()
     waiting_payment = State()
     generating = State()
@@ -508,12 +510,32 @@ async def choose_language(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     paper_type = data['paper_type']
     
+    await state.set_state(OrderState.choosing_pages)
+    await callback.message.edit_text(
+        f"📄 <b>Necha bet bo'lsin?</b>\n\n"
+        f"📝 Tur: {TYPE_NAMES[paper_type]}\n"
+        f"🌐 Til: {LANG_NAMES[language]}",
+        reply_markup=pages_keyboard(paper_type)
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("pages_"))
+async def choose_pages(callback: CallbackQuery, state: FSMContext):
+    pages = int(callback.data.replace("pages_", ""))
+    await state.update_data(pages=pages)
+    
+    data = await state.get_data()
+    paper_type = data['paper_type']
+    language = data['language']
+    
     confirm_text = f"""
 📋 <b>Buyurtmangiz:</b>
 
 📝 Tur: {TYPE_NAMES[paper_type]}
 📖 Mavzu: {data['topic']}
 🌐 Til: {LANG_NAMES[language]}
+📄 Hajm: {pages} bet
 💰 Narx: {PRICES[paper_type]:,} so'm
 
 ✅ Tasdiqlaysizmi?
@@ -527,6 +549,7 @@ async def choose_language(callback: CallbackQuery, state: FSMContext):
 async def confirm_order(callback: CallbackQuery, state: FSMContext):
     data = await state.get_data()
     paper_type = data['paper_type']
+    pages = data.get('pages', 10)
     price = PRICES[paper_type]
     
     order = await db_service.create_order(
@@ -534,7 +557,8 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
         topic=data['topic'],
         paper_type=paper_type,
         language=data['language'],
-        price=price
+        price=price,
+        pages=pages
     )
     
     await state.update_data(order_id=order.id)
@@ -544,6 +568,7 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
 💳 <b>To'lov</b>
 
 📦 Buyurtma #{order.id}
+📄 Hajm: {pages} bet
 💰 Summa: {price:,} so'm
 
 💳 Karta: <code>9860 1766 1838 6914</code>
@@ -620,7 +645,8 @@ async def admin_approve_payment(callback: CallbackQuery):
         content = await ai_service.generate_paper(
             topic=order.topic,
             paper_type=order.paper_type.value,
-            language=order.language
+            language=order.language,
+            pages=order.requested_pages
         )
         
         await progress_msg.edit_text("🔄 <b>Ishlanmoqda...</b>\n\n✅ AI yozdi\n⏳ DOCX tayyorlanmoqda...")
@@ -632,7 +658,7 @@ async def admin_approve_payment(callback: CallbackQuery):
         )
         
         word_count = len(content.split())
-        page_count = word_count // 250 + 1
+        page_count = order.requested_pages  # User tanlagan sahifa soni
         
         await db_service.complete_order(order_id, word_count, page_count)
         
@@ -650,7 +676,7 @@ async def admin_approve_payment(callback: CallbackQuery):
                     f"👤 User ID: {user_id}\n"
                     f"📝 {TYPE_NAMES.get(order.paper_type.value, '?')}\n"
                     f"📖 {order.topic[:50]}...\n"
-                    f"📄 {page_count} bet | {word_count} so'z\n\n"
+                    f"📄 {page_count} bet | {word_count:,} so'z\n\n"
                     f"✅ Userga yuborish yoki 🔄 Yangi fayl yuklash",
             reply_markup=doc_confirm_keyboard(order_id, user_id)
         )
@@ -711,7 +737,7 @@ async def admin_send_to_user(callback: CallbackQuery):
             caption=f"🎉 <b>Tayyor!</b>\n\n"
                     f"📝 {TYPE_NAMES.get(order.paper_type.value, '?')}\n"
                     f"📖 {order.topic[:50]}...\n"
-                    f"📄 {order.page_count} bet | {order.word_count} so'z\n\n"
+                    f"📄 {order.requested_pages} bet | {order.word_count:,} so'z\n\n"
                     f"Rahmat! TalabaGo bilan! 🚀"
         )
         
