@@ -46,6 +46,9 @@ LANG_NAMES = {
     "ru": "Ruscha"
 }
 
+# Admin IDs
+ADMIN_IDS = [5956268818, 524551673]
+
 
 class RegistrationState(StatesGroup):
     entering_name = State()
@@ -203,7 +206,7 @@ async def complete_registration(message: Message, state: FSMContext, user_id: in
 
 @router.message(Command("admin"))
 async def cmd_admin(message: Message):
-    if message.from_user.id != settings.ADMIN_ID:
+    if message.from_user.id not in ADMIN_IDS:
         await message.answer("⛔ Sizda ruxsat yo'q.")
         return
     
@@ -231,7 +234,7 @@ async def cmd_admin(message: Message):
 
 @router.callback_query(F.data == "admin_users")
 async def admin_users_list(callback: CallbackQuery):
-    if callback.from_user.id != settings.ADMIN_ID:
+    if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
         return
     
@@ -256,7 +259,7 @@ async def admin_users_list(callback: CallbackQuery):
 
 @router.callback_query(F.data == "admin_orders")
 async def admin_orders_list(callback: CallbackQuery):
-    if callback.from_user.id != settings.ADMIN_ID:
+    if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
         return
     
@@ -282,7 +285,7 @@ async def admin_orders_list(callback: CallbackQuery):
 
 @router.callback_query(F.data == "admin_refresh")
 async def admin_refresh(callback: CallbackQuery):
-    if callback.from_user.id != settings.ADMIN_ID:
+    if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
         return
     
@@ -316,7 +319,7 @@ async def admin_refresh(callback: CallbackQuery):
 
 @router.callback_query(F.data == "admin_broadcast")
 async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id != settings.ADMIN_ID:
+    if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
         return
     
@@ -332,7 +335,7 @@ async def admin_broadcast_start(callback: CallbackQuery, state: FSMContext):
 
 @router.message(BroadcastState.entering_message)
 async def admin_broadcast_preview(message: Message, state: FSMContext):
-    if message.from_user.id != settings.ADMIN_ID:
+    if message.from_user.id not in ADMIN_IDS:
         return
     
     # Xabar turini aniqlash
@@ -376,7 +379,7 @@ async def admin_broadcast_preview(message: Message, state: FSMContext):
 
 @router.callback_query(F.data == "broadcast_confirm")
 async def admin_broadcast_send(callback: CallbackQuery, state: FSMContext):
-    if callback.from_user.id != settings.ADMIN_ID:
+    if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
         return
     
@@ -572,7 +575,6 @@ async def confirm_order(callback: CallbackQuery, state: FSMContext):
 💰 Summa: {price:,} so'm
 
 💳 Karta: <code>9860 1766 1838 6914</code>
-👤 Egasi: NURBEK ALISHEROV
 
 To'lovni amalga oshiring va <b>screenshot</b> yuboring.
 """
@@ -601,12 +603,17 @@ async def receive_payment_proof(message: Message, state: FSMContext):
 💰 Summa: {PRICES[data['paper_type']]:,} so'm
 """
     
-    await message.bot.send_photo(
-        chat_id=settings.ADMIN_ID,
-        photo=message.photo[-1].file_id,
-        caption=admin_text,
-        reply_markup=payment_confirm_keyboard(order_id, message.from_user.id)
-    )
+    # Barcha adminlarga yuborish
+    for admin_id in ADMIN_IDS:
+        try:
+            await message.bot.send_photo(
+                chat_id=admin_id,
+                photo=message.photo[-1].file_id,
+                caption=admin_text,
+                reply_markup=payment_confirm_keyboard(order_id, message.from_user.id)
+            )
+        except:
+            pass
     
     await message.answer(
         "✅ To'lov qabul qilindi!\n\n⏳ Admin tekshirib, ishingizni tayyorlaydi.\nTayyor bo'lgach xabar beramiz.",
@@ -619,7 +626,7 @@ async def receive_payment_proof(message: Message, state: FSMContext):
 
 @router.callback_query(F.data.startswith("pay_ok_"))
 async def admin_approve_payment(callback: CallbackQuery):
-    if callback.from_user.id != settings.ADMIN_ID:
+    if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
         return
     
@@ -669,7 +676,7 @@ async def admin_approve_payment(callback: CallbackQuery):
         await admin_progress.delete()
         
         await callback.bot.send_document(
-            chat_id=settings.ADMIN_ID,
+            chat_id=callback.from_user.id,  # Tasdiqlagan adminga
             document=doc_file,
             caption=f"📄 <b>Tekshirish uchun:</b>\n\n"
                     f"🆔 Buyurtma: #{order_id}\n"
@@ -692,7 +699,7 @@ async def admin_approve_payment(callback: CallbackQuery):
 
 @router.callback_query(F.data.startswith("pay_no_"))
 async def admin_reject_payment(callback: CallbackQuery):
-    if callback.from_user.id != settings.ADMIN_ID:
+    if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
         return
     
@@ -717,7 +724,7 @@ async def admin_reject_payment(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("doc_ok_"))
 async def admin_send_to_user(callback: CallbackQuery):
     """Admin approves document and sends to user."""
-    if callback.from_user.id != settings.ADMIN_ID:
+    if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
         return
     
@@ -752,7 +759,7 @@ async def admin_send_to_user(callback: CallbackQuery):
 @router.callback_query(F.data.startswith("doc_replace_"))
 async def admin_replace_file(callback: CallbackQuery, state: FSMContext):
     """Admin wants to replace the document."""
-    if callback.from_user.id != settings.ADMIN_ID:
+    if callback.from_user.id not in ADMIN_IDS:
         await callback.answer("⛔ Ruxsat yo'q", show_alert=True)
         return
     
@@ -775,7 +782,7 @@ async def admin_replace_file(callback: CallbackQuery, state: FSMContext):
 @router.message(AdminState.replacing_file, F.document)
 async def receive_replacement_file(message: Message, state: FSMContext):
     """Receive replacement file from admin."""
-    if message.from_user.id != settings.ADMIN_ID:
+    if message.from_user.id not in ADMIN_IDS:
         return
     
     data = await state.get_data()
