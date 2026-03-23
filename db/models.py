@@ -32,6 +32,8 @@ class User(Base):
     university = Column(String(300))
     course = Column(Integer)  # 1, 2, 3, 4, 5, 6
     is_registered = Column(Integer, default=0)  # 0=no, 1=yes
+    referred_by = Column(BigInteger, nullable=True)  # Kim taklif qilgan (telegram_id)
+    referral_bonus = Column(Integer, default=0)  # Yig'ilgan bonus
     created_at = Column(DateTime, default=datetime.utcnow)
     
     orders = relationship("Order", back_populates="user")

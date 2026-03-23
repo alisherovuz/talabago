@@ -18,7 +18,8 @@ from bot.keyboards import (
     skip_keyboard,
     broadcast_confirm_keyboard,
     sample_keyboard,
-    doc_confirm_keyboard
+    doc_confirm_keyboard,
+    referral_keyboard
 )
 from config.settings import settings
 from services.ai_service import ai_service
@@ -48,6 +49,11 @@ LANG_NAMES = {
 
 # Admin IDs
 ADMIN_IDS = [5956268818, 524551673]
+
+# Namuna fayllar (public channel)
+SAMPLE_CHANNEL = "@thecuriosityproject"
+SAMPLE_REFERAT_MSG_ID = 6
+SAMPLE_KURS_MSG_ID = 7
 
 
 class RegistrationState(StatesGroup):
@@ -81,11 +87,25 @@ class AdminState(StatesGroup):
 async def cmd_start(message: Message, state: FSMContext):
     await state.clear()
     
-    # User ni DB ga qo'shish
+    # Referral link tekshirish (start=ref_123456)
+    referred_by = None
+    if message.text and len(message.text.split()) > 1:
+        args = message.text.split()[1]
+        if args.startswith("ref_"):
+            try:
+                referred_by = int(args.replace("ref_", ""))
+                # O'zini o'zi taklif qila olmaydi
+                if referred_by == message.from_user.id:
+                    referred_by = None
+            except ValueError:
+                referred_by = None
+    
+    # User ni DB ga qo'shish (referral bilan)
     user = await db_service.get_or_create_user(
         telegram_id=message.from_user.id,
         username=message.from_user.username,
-        full_name=message.from_user.full_name
+        full_name=message.from_user.full_name,
+        referred_by=referred_by
     )
     
     # Tekshirish — ro'yxatdan o'tganmi?
@@ -94,12 +114,15 @@ async def cmd_start(message: Message, state: FSMContext):
     if not is_registered:
         # Ro'yxatdan o'tish kerak
         await state.set_state(RegistrationState.entering_name)
-        await message.answer(
-            "🎓 <b>TalabaGo</b> ga xush kelibsiz!\n\n"
-            "Avval ro'yxatdan o'ting.\n\n"
-            "👤 <b>Ism-familiyangizni kiriting:</b>\n\n"
-            "<i>Misol: Aliyev Jasur</i>"
-        )
+        
+        welcome_msg = "🎓 <b>TalabaGo</b> ga xush kelibsiz!\n\n"
+        if referred_by:
+            welcome_msg += "🎁 Do'stingiz taklifi orqali keldingiz!\n\n"
+        welcome_msg += "Avval ro'yxatdan o'ting.\n\n"
+        welcome_msg += "👤 <b>Ism-familiyangizni kiriting:</b>\n\n"
+        welcome_msg += "<i>Misol: Aliyev Jasur</i>"
+        
+        await message.answer(welcome_msg)
     else:
         # Asosiy menyu
         await show_main_menu(message)
@@ -107,15 +130,16 @@ async def cmd_start(message: Message, state: FSMContext):
 
 async def show_main_menu(message: Message):
     welcome_text = """
-🎓 <b>TalabaGo</b> ga xush kelibsiz!
+🎓 <b>TalabaGo</b> — Talabalar yordamchisi!
 
-Men sizga ilmiy ishlar yozishda yordam beraman:
-📝 Referat — 7,000 so'm
-📚 Kurs ishi — 15,000 so'm
-🎓 Diplom ishi — Tez kunda
-📊 Prezentatsiya — Tez kunda
+Biz sizga ilmiy ishlar yozishda yordam beramiz:
 
-Tez, sifatli va arzon! 🚀
+📝 <b>Referat</b> — 7,000 so'm (10-20 bet)
+📚 <b>Kurs ishi</b> — 15,000 so'm (15-30 bet)
+🎓 <b>Diplom ishi</b> — Tez kunda
+📊 <b>Prezentatsiya</b> — Tez kunda
+
+⚡ Tez • ✨ Sifatli • 💰 Arzon
 """
     await message.answer(welcome_text, reply_markup=main_menu_keyboard())
 
@@ -820,15 +844,16 @@ async def receive_replacement_file(message: Message, state: FSMContext):
 async def back_to_menu(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     welcome_text = """
-🎓 <b>TalabaGo</b> ga xush kelibsiz!
+🎓 <b>TalabaGo</b> — Talabalar yordamchisi!
 
-Men sizga ilmiy ishlar yozishda yordam beraman:
-📝 Referat — 7,000 so'm
-📚 Kurs ishi — 15,000 so'm
-🎓 Diplom ishi — Tez kunda
-📊 Prezentatsiya — Tez kunda
+Biz sizga ilmiy ishlar yozishda yordam beramiz:
 
-Tez, sifatli va arzon! 🚀
+📝 <b>Referat</b> — 7,000 so'm (10-20 bet)
+📚 <b>Kurs ishi</b> — 15,000 so'm (15-30 bet)
+🎓 <b>Diplom ishi</b> — Tez kunda
+📊 <b>Prezentatsiya</b> — Tez kunda
+
+⚡ Tez • ✨ Sifatli • 💰 Arzon
 """
     await callback.message.edit_text(welcome_text, reply_markup=main_menu_keyboard())
     await callback.answer()
@@ -880,34 +905,112 @@ async def show_help(callback: CallbackQuery):
 @router.callback_query(F.data == "show_sample")
 async def show_sample(callback: CallbackQuery):
     sample_text = """
-📋 <b>Namuna</b>
+📋 <b>Namunaviy ishlar</b>
 
-Quyida AI tomonidan yozilgan referat namunasini ko'rishingiz mumkin.
+Quyida AI tomonidan yozilgan tayyor ishlarni ko'rishingiz mumkin. Siz ham xuddi shunday sifatli ish olasiz!
 
-📝 <b>Mavzu:</b> O'zbekistonda turizm sanoatining rivojlanishi
-📄 <b>Hajm:</b> 12 bet
-🌐 <b>Til:</b> O'zbekcha
+📝 <b>Referat namunasi:</b>
+• Mavzu: O'zbekistonda turizm sanoatining rivojlanishi
+• Hajm: 15 bet
 
-⬇️ Yuklash uchun pastdagi tugmani bosing.
+📚 <b>Kurs ishi namunasi:</b>
+• Mavzu: Raqamli iqtisodiyotning rivojlanish istiqbollari
+• Hajm: 25 bet
+
+⬇️ Yuklab ko'ring va sifatiga ishonch hosil qiling!
 """
     await callback.message.edit_text(sample_text, reply_markup=sample_keyboard())
     await callback.answer()
 
 
-@router.callback_query(F.data == "download_sample")
-async def download_sample(callback: CallbackQuery):
-    await callback.answer("⏳ Namuna yuklanmoqda...", show_alert=False)
+@router.callback_query(F.data == "sample_referat")
+async def download_sample_referat(callback: CallbackQuery):
+    await callback.answer("📥 Referat namunasi yuklanmoqda...", show_alert=False)
     
-    # Namuna fayl yuborish
-    sample_url = "https://drive.google.com/uc?export=download&id=YOUR_FILE_ID"
+    try:
+        await callback.bot.copy_message(
+            chat_id=callback.from_user.id,
+            from_chat_id=SAMPLE_CHANNEL,
+            message_id=SAMPLE_REFERAT_MSG_ID
+        )
+        await callback.message.answer(
+            "📝 <b>Referat namunasi yuborildi!</b>\n\n"
+            "✨ Siz ham shunday sifatli ish olishingiz mumkin!\n"
+            "👇 Buyurtma berish uchun tugmani bosing.",
+            reply_markup=main_menu_keyboard()
+        )
+    except Exception:
+        await callback.message.answer(
+            "📝 <b>Referat namunasi</b>\n\n"
+            "⚠️ Fayl yuklanmadi. Keyinroq urinib ko'ring.\n\n"
+            "👉 Buyurtma berish uchun tugmani bosing.",
+            reply_markup=sample_keyboard()
+        )
+
+
+@router.callback_query(F.data == "sample_kurs")
+async def download_sample_kurs(callback: CallbackQuery):
+    await callback.answer("📥 Kurs ishi namunasi yuklanmoqda...", show_alert=False)
+    
+    try:
+        await callback.bot.copy_message(
+            chat_id=callback.from_user.id,
+            from_chat_id=SAMPLE_CHANNEL,
+            message_id=SAMPLE_KURS_MSG_ID
+        )
+        await callback.message.answer(
+            "📚 <b>Kurs ishi namunasi yuborildi!</b>\n\n"
+            "✨ Siz ham shunday sifatli ish olishingiz mumkin!\n"
+            "👇 Buyurtma berish uchun tugmani bosing.",
+            reply_markup=main_menu_keyboard()
+        )
+    except Exception:
+        await callback.message.answer(
+            "📚 <b>Kurs ishi namunasi</b>\n\n"
+            "⚠️ Fayl yuklanmadi. Keyinroq urinib ko'ring.\n\n"
+            "👉 Buyurtma berish uchun tugmani bosing.",
+            reply_markup=sample_keyboard()
+        )
+
+
+@router.callback_query(F.data == "sample_all")
+async def download_all_samples(callback: CallbackQuery):
+    await callback.answer("📥 Barcha namunalar yuklanmoqda...", show_alert=False)
+    
+    await callback.message.answer("📥 <b>Namunalar yuklanmoqda...</b>")
+    
+    # Referat
+    try:
+        await callback.bot.copy_message(
+            chat_id=callback.from_user.id,
+            from_chat_id=SAMPLE_CHANNEL,
+            message_id=SAMPLE_REFERAT_MSG_ID
+        )
+    except Exception:
+        await callback.message.answer("📝 Referat namunasi — yuklanmadi")
+    
+    # Kurs ishi
+    try:
+        await callback.bot.copy_message(
+            chat_id=callback.from_user.id,
+            from_chat_id=SAMPLE_CHANNEL,
+            message_id=SAMPLE_KURS_MSG_ID
+        )
+    except Exception:
+        await callback.message.answer("📚 Kurs ishi namunasi — yuklanmadi")
     
     await callback.message.answer(
-        "📄 <b>Namuna referat</b>\n\n"
-        "Mavzu: O'zbekistonda turizm sanoatining rivojlanishi\n\n"
-        "⚠️ Bu AI tomonidan yozilgan namuna. Siz ham shunday sifatli ish olishingiz mumkin!\n\n"
-        "👉 Buyurtma berish uchun /start bosing",
+        "✅ <b>Tayyor!</b>\n\n"
+        "Siz ham shunday sifatli ish olishingiz mumkin!\n"
+        "👇 Buyurtma berish uchun tugmani bosing.",
         reply_markup=main_menu_keyboard()
     )
+
+
+@router.callback_query(F.data == "download_sample")
+async def download_sample(callback: CallbackQuery):
+    # Eski handler — yangi sample_all ga yo'naltirish
+    await download_all_samples(callback)
 
 
 @router.callback_query(F.data == "cancel_payment")
@@ -915,3 +1018,52 @@ async def cancel_payment(callback: CallbackQuery, state: FSMContext):
     await state.clear()
     await callback.message.edit_text("❌ Buyurtma bekor qilindi.", reply_markup=main_menu_keyboard())
     await callback.answer()
+
+
+# ==================== REFERRAL SYSTEM ====================
+
+@router.callback_query(F.data == "referral")
+async def show_referral(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    bot_info = await callback.bot.get_me()
+    referral_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
+    
+    # Referral statistikasi
+    referral_count = await db_service.get_referral_count(user_id)
+    bonus_amount = referral_count * 1000  # Har bir referral uchun 1000 so'm
+    
+    referral_text = f"""
+🎁 <b>Do'stingizni taklif qiling!</b>
+
+Har bir do'stingiz ro'yxatdan o'tsa, siz <b>1,000 so'm</b> bonus olasiz!
+
+📊 <b>Sizning statistikangiz:</b>
+├ 👥 Taklif qilganlar: <b>{referral_count}</b> ta
+└ 💰 Bonus: <b>{bonus_amount:,}</b> so'm
+
+🔗 <b>Sizning havolangiz:</b>
+<code>{referral_link}</code>
+
+👆 Havolani bosing va do'stlaringizga yuboring!
+"""
+    
+    await callback.message.edit_text(
+        referral_text, 
+        reply_markup=referral_keyboard(bot_info.username, user_id),
+        disable_web_page_preview=True
+    )
+    await callback.answer()
+
+
+@router.callback_query(F.data == "copy_referral")
+async def copy_referral_link(callback: CallbackQuery):
+    user_id = callback.from_user.id
+    bot_info = await callback.bot.get_me()
+    referral_link = f"https://t.me/{bot_info.username}?start=ref_{user_id}"
+    
+    await callback.answer(f"📋 Link nusxalandi!", show_alert=False)
+    await callback.message.answer(
+        f"🔗 <b>Sizning referral havolangiz:</b>\n\n"
+        f"<code>{referral_link}</code>\n\n"
+        f"👆 Ustiga bosib nusxalang va do'stlaringizga yuboring!"
+    )

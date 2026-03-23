@@ -4,9 +4,12 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 def main_menu_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
         [InlineKeyboardButton(text="📝 Yangi buyurtma", callback_data="new_order")],
-        [InlineKeyboardButton(text="📋 Namuna ko'rish", callback_data="show_sample")],
+        [InlineKeyboardButton(text="📋 Namunaviy ishlar", callback_data="show_sample")],
         [InlineKeyboardButton(text="📦 Mening buyurtmalarim", callback_data="my_orders")],
-        [InlineKeyboardButton(text="❓ Yordam", callback_data="help")]
+        [
+            InlineKeyboardButton(text="🎁 Do'stni taklif qil", callback_data="referral"),
+            InlineKeyboardButton(text="❓ Yordam", callback_data="help")
+        ]
     ])
 
 
@@ -33,26 +36,28 @@ def language_keyboard():
 def pages_keyboard(paper_type: str):
     """Page count options based on paper type."""
     if paper_type == "referat":
+        # Referat: 10-20 bet
         return InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text="📄 14 bet", callback_data="pages_14"),
-                InlineKeyboardButton(text="📄 17 bet", callback_data="pages_17"),
+                InlineKeyboardButton(text="📄 10 bet", callback_data="pages_10"),
+                InlineKeyboardButton(text="📄 12 bet", callback_data="pages_12"),
+                InlineKeyboardButton(text="📄 15 bet", callback_data="pages_15"),
             ],
             [
+                InlineKeyboardButton(text="📄 18 bet", callback_data="pages_18"),
                 InlineKeyboardButton(text="📄 20 bet", callback_data="pages_20"),
-                InlineKeyboardButton(text="📄 25 bet", callback_data="pages_25"),
             ],
             [InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_menu")]
         ])
-    else:  # kurs ishi
+    else:  # kurs ishi: 15-30 bet
         return InlineKeyboardMarkup(inline_keyboard=[
+            [
+                InlineKeyboardButton(text="📄 15 bet", callback_data="pages_15"),
+                InlineKeyboardButton(text="📄 20 bet", callback_data="pages_20"),
+            ],
             [
                 InlineKeyboardButton(text="📄 25 bet", callback_data="pages_25"),
                 InlineKeyboardButton(text="📄 30 bet", callback_data="pages_30"),
-            ],
-            [
-                InlineKeyboardButton(text="📄 35 bet", callback_data="pages_35"),
-                InlineKeyboardButton(text="📄 40 bet", callback_data="pages_40"),
             ],
             [InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_menu")]
         ])
@@ -137,8 +142,20 @@ def broadcast_confirm_keyboard():
 
 def sample_keyboard():
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="⬇️ Namunani yuklash", callback_data="download_sample")],
-        [InlineKeyboardButton(text="📝 Buyurtma berish", callback_data="new_order")],
+        [InlineKeyboardButton(text="📝 Referat namunasi", callback_data="sample_referat")],
+        [InlineKeyboardButton(text="📚 Kurs ishi namunasi", callback_data="sample_kurs")],
+        [InlineKeyboardButton(text="📥 Barchasini yuklash", callback_data="sample_all")],
+        [InlineKeyboardButton(text="🛒 Buyurtma berish", callback_data="new_order")],
+        [InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_menu")]
+    ])
+
+
+def referral_keyboard(bot_username: str, user_id: int):
+    """Referral link sharing keyboard."""
+    referral_link = f"https://t.me/{bot_username}?start=ref_{user_id}"
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📤 Do'stlarga ulashish", switch_inline_query=f"TalabaGo bot orqali referat va kurs ishlarini tez tayyorlang! 🎓\n\n{referral_link}")],
+        [InlineKeyboardButton(text="📋 Linkni nusxalash", callback_data="copy_referral")],
         [InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_menu")]
     ])
 
