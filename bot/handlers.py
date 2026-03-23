@@ -19,7 +19,8 @@ from bot.keyboards import (
     broadcast_confirm_keyboard,
     sample_keyboard,
     doc_confirm_keyboard,
-    referral_keyboard
+    referral_keyboard,
+    help_keyboard
 )
 from config.settings import settings
 from services.ai_service import ai_service
@@ -83,6 +84,10 @@ class BroadcastState(StatesGroup):
 
 class AdminState(StatesGroup):
     replacing_file = State()
+
+
+class SupportState(StatesGroup):
+    waiting_message = State()
 
 
 # ==================== SUBSCRIPTION CHECK ====================
@@ -968,10 +973,102 @@ async def show_help(callback: CallbackQuery):
 🎓 Diplom — Tez kunda
 📊 Prezentatsiya — Tez kunda
 
-<b>Aloqa:</b> @TalabaGo_support
+💬 Savollaringiz bo'lsa, admin bilan bog'laning!
 """
-    await callback.message.edit_text(help_text, reply_markup=back_keyboard())
+    await callback.message.edit_text(help_text, reply_markup=help_keyboard())
     await callback.answer()
+
+
+@router.callback_query(F.data == "contact_admin")
+async def contact_admin(callback: CallbackQuery, state: FSMContext):
+    await state.set_state(SupportState.waiting_message)
+    await callback.message.edit_text(
+        "💬 <b>Admin bilan bog'lanish</b>\n\n"
+        "Xabaringizni yozing — admin tez orada javob beradi.\n\n"
+        "<i>Matn, rasm yoki fayl yuborishingiz mumkin.</i>",
+        reply_markup=back_keyboard()
+    )
+    await callback.answer()
+
+
+@router.message(SupportState.waiting_message)
+async def receive_support_message(message: Message, state: FSMContext):
+    """User xabarini adminga yuborish."""
+    user = message.from_user
+    user_info = f"👤 <b>{user.full_name}</b>"
+    if user.username:
+        user_info += f" (@{user.username})"
+    user_info += f"\n🆔 ID: <code>{user.id}</code>"
+    
+    # Barcha adminlarga yuborish
+    for admin_id in ADMIN_IDS:
+        try:
+            # Xabar turini aniqlash va forward qilish
+            if message.photo:
+                await message.bot.send_photo(
+                    chat_id=admin_id,
+                    photo=message.photo[-1].file_id,
+                    caption=f"📩 <b>Yangi xabar!</b>\n\n{user_info}\n\n💬 {message.caption or '(rasm)'}",
+                )
+            elif message.document:
+                await message.bot.send_document(
+                    chat_id=admin_id,
+                    document=message.document.file_id,
+                    caption=f"📩 <b>Yangi xabar!</b>\n\n{user_info}\n\n💬 {message.caption or '(fayl)'}",
+                )
+            else:
+                await message.bot.send_message(
+                    chat_id=admin_id,
+                    text=f"📩 <b>Yangi xabar!</b>\n\n{user_info}\n\n💬 {message.text}",
+                )
+            
+            # Reply qilish uchun user_id ni saqlash
+            await message.bot.send_message(
+                chat_id=admin_id,
+                text=f"↩️ Javob berish uchun reply qiling.\n<code>/reply {user.id}</code>",
+            )
+        except Exception:
+            pass
+    
+    await state.clear()
+    await message.answer(
+        "✅ <b>Xabaringiz yuborildi!</b>\n\n"
+        "Admin tez orada javob beradi. Kuting...",
+        reply_markup=main_menu_keyboard()
+    )
+
+
+@router.message(Command("reply"))
+async def admin_reply(message: Message):
+    """Admin userga javob berish."""
+    if message.from_user.id not in ADMIN_IDS:
+        return
+    
+    # /reply 123456789 Javob matni
+    parts = message.text.split(maxsplit=2)
+    
+    if len(parts) < 3:
+        await message.answer(
+            "❌ Format noto'g'ri.\n\n"
+            "To'g'ri format: <code>/reply USER_ID Javob matni</code>"
+        )
+        return
+    
+    try:
+        user_id = int(parts[1])
+        reply_text = parts[2]
+    except ValueError:
+        await message.answer("❌ User ID noto'g'ri.")
+        return
+    
+    try:
+        await message.bot.send_message(
+            chat_id=user_id,
+            text=f"📨 <b>Admin javobi:</b>\n\n{reply_text}"
+        )
+        await message.answer("✅ Javob yuborildi!")
+    except Exception as e:
+        await message.answer(f"❌ Xatolik: {e}")
 
 
 @router.callback_query(F.data == "show_sample")

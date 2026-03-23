@@ -82,6 +82,13 @@ def back_keyboard():
     ])
 
 
+def help_keyboard():
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="💬 Admin bilan bog'lanish", callback_data="contact_admin")],
+        [InlineKeyboardButton(text="◀️ Orqaga", callback_data="back_to_menu")]
+    ])
+
+
 # ==================== ADMIN KEYBOARDS ====================
 
 def admin_keyboard():
