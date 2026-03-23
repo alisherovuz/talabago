@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}Foydalanuvchilar - TalabaGo Admin{% endblock %}
+{% block content %}
+<div class="flex">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-gray-800 min-h-screen p-6 fixed">
+        <div class="mb-8">
+            <h1 class="text-2xl font-bold text-purple-400">🎓 TalabaGo</h1>
+            <p class="text-gray-500 text-sm">Admin Panel</p>
+        </div>
+        
+        <nav class="space-y-2">
+            <a href="/dashboard" class="flex items-center px-4 py-3 text-gray-400 hover:bg-gray-700 rounded-lg transition">
+                <i class="fas fa-chart-line w-6"></i> Dashboard
+            </a>
+            <a href="/users" class="flex items-center px-4 py-3 bg-purple-600/20 text-purple-400 rounded-lg">
+                <i class="fas fa-users w-6"></i> Foydalanuvchilar
+            </a>
+            <a href="/orders" class="flex items-center px-4 py-3 text-gray-400 hover:bg-gray-700 rounded-lg transition">
+                <i class="fas fa-shopping-cart w-6"></i> Buyurtmalar
+            </a>
+        </nav>
+        
+        <div class="absolute bottom-6 left-6 right-6">
+            <a href="/logout" class="flex items-center px-4 py-3 text-red-400 hover:bg-red-500/20 rounded-lg transition">
+                <i class="fas fa-sign-out-alt w-6"></i> Chiqish
+            </a>
+        </div>
+    </aside>
+    
+    <!-- Main content -->
+    <main class="ml-64 flex-1 p-8">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-bold">👥 Foydalanuvchilar</h2>
+            <span class="bg-gray-800 px-4 py-2 rounded-lg">Jami: {{ total }}</span>
+        </div>
+        
+        <!-- Users Table -->
+        <div class="bg-gray-800 rounded-xl overflow-hidden">
+            <table class="w-full">
+                <thead class="bg-gray-700">
+                    <tr>
+                        <th class="text-left px-6 py-4 text-gray-400 font-medium">ID</th>
+                        <th class="text-left px-6 py-4 text-gray-400 font-medium">Ism</th>
+                        <th class="text-left px-6 py-4 text-gray-400 font-medium">Username</th>
+                        <th class="text-left px-6 py-4 text-gray-400 font-medium">Universitet</th>
+                        <th class="text-left px-6 py-4 text-gray-400 font-medium">Kurs</th>
+                        <th class="text-left px-6 py-4 text-gray-400 font-medium">Holat</th>
+                        <th class="text-left px-6 py-4 text-gray-400 font-medium">Sana</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-700">
+                    {% for user in users %}
+                    <tr class="hover:bg-gray-700/50 transition">
+                        <td class="px-6 py-4">
+                            <code class="text-sm bg-gray-700 px-2 py-1 rounded">{{ user.telegram_id }}</code>
+                        </td>
+                        <td class="px-6 py-4 font-medium">{{ user.full_name or '—' }}</td>
+                        <td class="px-6 py-4 text-gray-400">@{{ user.username or '—' }}</td>
+                        <td class="px-6 py-4">{{ user.university or '—' }}</td>
+                        <td class="px-6 py-4">
+                            {% if user.course %}
+                            <span class="bg-purple-500/20 text-purple-400 px-2 py-1 rounded text-sm">
+                                {{ user.course }}-kurs
+                            </span>
+                            {% else %}
+                            —
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if user.is_registered %}
+                            <span class="bg-green-500/20 text-green-400 px-2 py-1 rounded text-sm">✅ Ro'yxatdan o'tgan</span>
+                            {% else %}
+                            <span class="bg-gray-600/20 text-gray-400 px-2 py-1 rounded text-sm">❌ O'tmagan</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-gray-400 text-sm">
+                            {{ user.created_at.strftime('%d.%m.%Y %H:%M') if user.created_at else '—' }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <div class="flex items-center justify-center mt-6 space-x-2">
+            {% if page > 1 %}
+            <a href="/users?page={{ page - 1 }}" class="px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+            {% endif %}
+            
+            <span class="px-4 py-2 bg-purple-600 rounded-lg">{{ page }} / {{ total_pages }}</span>
+            
+            {% if page < total_pages %}
+            <a href="/users?page={{ page + 1 }}" class="px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition">
+                <i class="fas fa-chevron-right"></i>
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

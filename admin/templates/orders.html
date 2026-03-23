@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Buyurtmalar - TalabaGo Admin{% endblock %}
+{% block content %}
+<div class="flex">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-gray-800 min-h-screen p-6 fixed">
+        <div class="mb-8">
+            <h1 class="text-2xl font-bold text-purple-400">🎓 TalabaGo</h1>
+            <p class="text-gray-500 text-sm">Admin Panel</p>
+        </div>
+        
+        <nav class="space-y-2">
+            <a href="/dashboard" class="flex items-center px-4 py-3 text-gray-400 hover:bg-gray-700 rounded-lg transition">
+                <i class="fas fa-chart-line w-6"></i> Dashboard
+            </a>
+            <a href="/users" class="flex items-center px-4 py-3 text-gray-400 hover:bg-gray-700 rounded-lg transition">
+                <i class="fas fa-users w-6"></i> Foydalanuvchilar
+            </a>
+            <a href="/orders" class="flex items-center px-4 py-3 bg-purple-600/20 text-purple-400 rounded-lg">
+                <i class="fas fa-shopping-cart w-6"></i> Buyurtmalar
+            </a>
+        </nav>
+        
+        <div class="absolute bottom-6 left-6 right-6">
+            <a href="/logout" class="flex items-center px-4 py-3 text-red-400 hover:bg-red-500/20 rounded-lg transition">
+                <i class="fas fa-sign-out-alt w-6"></i> Chiqish
+            </a>
+        </div>
+    </aside>
+    
+    <!-- Main content -->
+    <main class="ml-64 flex-1 p-8">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-bold">📦 Buyurtmalar</h2>
+            <div class="flex items-center space-x-2">
+                <a href="/orders" class="px-4 py-2 rounded-lg {{ 'bg-purple-600' if not current_status else 'bg-gray-800 hover:bg-gray-700' }} transition">
+                    Barchasi
+                </a>
+                <a href="/orders?status=pending" class="px-4 py-2 rounded-lg {{ 'bg-yellow-600' if current_status == 'pending' else 'bg-gray-800 hover:bg-gray-700' }} transition">
+                    🟡 Kutilmoqda
+                </a>
+                <a href="/orders?status=paid" class="px-4 py-2 rounded-lg {{ 'bg-blue-600' if current_status == 'paid' else 'bg-gray-800 hover:bg-gray-700' }} transition">
+                    🔵 To'langan
+                </a>
+                <a href="/orders?status=completed" class="px-4 py-2 rounded-lg {{ 'bg-green-600' if current_status == 'completed' else 'bg-gray-800 hover:bg-gray-700' }} transition">
+                    🟢 Tayyor
+                </a>
+            </div>
+        </div>
+        
+        <!-- Orders Table -->
+        <div class="bg-gray-800 rounded-xl overflow-hidden">
+            <table class="w-full">
+                <thead class="bg-gray-700">
+                    <tr>
+                        <th class="text-left px-6 py-4 text-gray-400 font-medium">ID</th>
+                        <th class="text-left px-6 py-4 text-gray-400 font-medium">User</th>
+                        <th class="text-left px-6 py-4 text-gray-400 font-medium">Turi</th>
+                        <th class="text-left px-6 py-4 text-gray-400 font-medium">Mavzu</th>
+                        <th class="text-left px-6 py-4 text-gray-400 font-medium">Narxi</th>
+                        <th class="text-left px-6 py-4 text-gray-400 font-medium">Holat</th>
+                        <th class="text-left px-6 py-4 text-gray-400 font-medium">Sana</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-700">
+                    {% for order in orders %}
+                    <tr class="hover:bg-gray-700/50 transition">
+                        <td class="px-6 py-4 font-mono">#{{ order.id }}</td>
+                        <td class="px-6 py-4">
+                            {% if order.user %}
+                            <div>
+                                <p class="font-medium">{{ order.user.full_name or 'Nomsiz' }}</p>
+                                <p class="text-gray-400 text-sm">@{{ order.user.username or '—' }}</p>
+                            </div>
+                            {% else %}
+                            <span class="text-gray-400">—</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4">
+                            {% if order.paper_type.value == 'referat' %}
+                            <span class="bg-blue-500/20 text-blue-400 px-2 py-1 rounded text-sm">📝 Referat</span>
+                            {% elif order.paper_type.value == 'kurs' %}
+                            <span class="bg-purple-500/20 text-purple-400 px-2 py-1 rounded text-sm">📚 Kurs ishi</span>
+                            {% else %}
+                            <span class="bg-gray-500/20 text-gray-400 px-2 py-1 rounded text-sm">{{ order.paper_type.value }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 max-w-xs">
+                            <p class="truncate" title="{{ order.topic }}">{{ order.topic[:50] }}{% if order.topic|length > 50 %}...{% endif %}</p>
+                            <p class="text-gray-400 text-sm">{{ order.requested_pages }} bet • {{ order.language | upper }}</p>
+                        </td>
+                        <td class="px-6 py-4 font-bold">{{ "{:,}".format(order.price) }} <span class="text-gray-400 font-normal">so'm</span></td>
+                        <td class="px-6 py-4">
+                            {% if order.status.value == 'pending' %}
+                            <span class="bg-yellow-500/20 text-yellow-400 px-3 py-1 rounded-full text-sm">🟡 Kutilmoqda</span>
+                            {% elif order.status.value == 'paid' %}
+                            <span class="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-sm">🔵 To'langan</span>
+                            {% elif order.status.value == 'processing' %}
+                            <span class="bg-orange-500/20 text-orange-400 px-3 py-1 rounded-full text-sm">🟠 Ishlanmoqda</span>
+                            {% elif order.status.value == 'completed' %}
+                            <span class="bg-green-500/20 text-green-400 px-3 py-1 rounded-full text-sm">🟢 Tayyor</span>
+                            {% elif order.status.value == 'rejected' %}
+                            <span class="bg-red-500/20 text-red-400 px-3 py-1 rounded-full text-sm">🔴 Rad</span>
+                            {% else %}
+                            <span class="bg-gray-500/20 text-gray-400 px-3 py-1 rounded-full text-sm">{{ order.status.value }}</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-6 py-4 text-gray-400 text-sm">
+                            {{ order.created_at.strftime('%d.%m.%Y %H:%M') if order.created_at else '—' }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            {% if not orders %}
+            <div class="text-center py-12 text-gray-400">
+                <i class="fas fa-inbox text-4xl mb-4"></i>
+                <p>Buyurtmalar topilmadi</p>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Pagination -->
+        {% if total_pages > 1 %}
+        <div class="flex items-center justify-center mt-6 space-x-2">
+            {% if page > 1 %}
+            <a href="/orders?page={{ page - 1 }}{% if current_status %}&status={{ current_status }}{% endif %}" 
+               class="px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition">
+                <i class="fas fa-chevron-left"></i>
+            </a>
+            {% endif %}
+            
+            <span class="px-4 py-2 bg-purple-600 rounded-lg">{{ page }} / {{ total_pages }}</span>
+            
+            {% if page < total_pages %}
+            <a href="/orders?page={{ page + 1 }}{% if current_status %}&status={{ current_status }}{% endif %}" 
+               class="px-4 py-2 bg-gray-800 rounded-lg hover:bg-gray-700 transition">
+                <i class="fas fa-chevron-right"></i>
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+    </main>
+</div>
+{% endblock %}

@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - TalabaGo Admin{% endblock %}
+{% block content %}
+<div class="flex">
+    <!-- Sidebar -->
+    <aside class="w-64 bg-gray-800 min-h-screen p-6 fixed">
+        <div class="mb-8">
+            <h1 class="text-2xl font-bold text-purple-400">🎓 TalabaGo</h1>
+            <p class="text-gray-500 text-sm">Admin Panel</p>
+        </div>
+        
+        <nav class="space-y-2">
+            <a href="/dashboard" class="flex items-center px-4 py-3 bg-purple-600/20 text-purple-400 rounded-lg">
+                <i class="fas fa-chart-line w-6"></i> Dashboard
+            </a>
+            <a href="/users" class="flex items-center px-4 py-3 text-gray-400 hover:bg-gray-700 rounded-lg transition">
+                <i class="fas fa-users w-6"></i> Foydalanuvchilar
+            </a>
+            <a href="/orders" class="flex items-center px-4 py-3 text-gray-400 hover:bg-gray-700 rounded-lg transition">
+                <i class="fas fa-shopping-cart w-6"></i> Buyurtmalar
+            </a>
+        </nav>
+        
+        <div class="absolute bottom-6 left-6 right-6">
+            <a href="/logout" class="flex items-center px-4 py-3 text-red-400 hover:bg-red-500/20 rounded-lg transition">
+                <i class="fas fa-sign-out-alt w-6"></i> Chiqish
+            </a>
+        </div>
+    </aside>
+    
+    <!-- Main content -->
+    <main class="ml-64 flex-1 p-8">
+        <h2 class="text-2xl font-bold mb-6">📊 Dashboard</h2>
+        
+        <!-- Stats Grid -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- Users -->
+            <div class="bg-gray-800 rounded-xl p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Jami foydalanuvchilar</p>
+                        <p class="text-3xl font-bold mt-1">{{ stats.total_users }}</p>
+                        <p class="text-green-400 text-sm mt-1">+{{ stats.today_users }} bugun</p>
+                    </div>
+                    <div class="bg-blue-500/20 p-4 rounded-xl">
+                        <i class="fas fa-users text-blue-400 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Orders -->
+            <div class="bg-gray-800 rounded-xl p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Jami buyurtmalar</p>
+                        <p class="text-3xl font-bold mt-1">{{ stats.total_orders }}</p>
+                        <p class="text-green-400 text-sm mt-1">+{{ stats.today_orders }} bugun</p>
+                    </div>
+                    <div class="bg-purple-500/20 p-4 rounded-xl">
+                        <i class="fas fa-shopping-cart text-purple-400 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pending -->
+            <div class="bg-gray-800 rounded-xl p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Kutilmoqda</p>
+                        <p class="text-3xl font-bold mt-1">{{ stats.pending_orders }}</p>
+                        <p class="text-yellow-400 text-sm mt-1">{{ stats.completed_orders }} bajarildi</p>
+                    </div>
+                    <div class="bg-yellow-500/20 p-4 rounded-xl">
+                        <i class="fas fa-clock text-yellow-400 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Revenue -->
+            <div class="bg-gray-800 rounded-xl p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-gray-400 text-sm">Jami daromad</p>
+                        <p class="text-3xl font-bold mt-1">{{ stats.total_revenue }}</p>
+                        <p class="text-green-400 text-sm mt-1">+{{ stats.today_revenue }} bugun</p>
+                    </div>
+                    <div class="bg-green-500/20 p-4 rounded-xl">
+                        <i class="fas fa-money-bill text-green-400 text-2xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Data -->
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Recent Orders -->
+            <div class="bg-gray-800 rounded-xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold">Oxirgi buyurtmalar</h3>
+                    <a href="/orders" class="text-purple-400 text-sm hover:underline">Barchasi →</a>
+                </div>
+                <div class="space-y-3">
+                    {% for order in recent_orders %}
+                    <div class="flex items-center justify-between py-3 border-b border-gray-700 last:border-0">
+                        <div>
+                            <p class="font-medium">#{{ order.id }} — {{ order.paper_type.value | title }}</p>
+                            <p class="text-gray-400 text-sm truncate max-w-xs">{{ order.topic[:40] }}...</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-bold">{{ "{:,}".format(order.price) }} so'm</p>
+                            {% if order.status.value == 'pending' %}
+                            <span class="text-yellow-400 text-xs">🟡 Kutilmoqda</span>
+                            {% elif order.status.value == 'completed' %}
+                            <span class="text-green-400 text-xs">🟢 Tayyor</span>
+                            {% elif order.status.value == 'paid' %}
+                            <span class="text-blue-400 text-xs">🔵 To'langan</span>
+                            {% else %}
+                            <span class="text-gray-400 text-xs">{{ order.status.value }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Recent Users -->
+            <div class="bg-gray-800 rounded-xl p-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-lg font-bold">Yangi foydalanuvchilar</h3>
+                    <a href="/users" class="text-purple-400 text-sm hover:underline">Barchasi →</a>
+                </div>
+                <div class="space-y-3">
+                    {% for user in recent_users %}
+                    <div class="flex items-center justify-between py-3 border-b border-gray-700 last:border-0">
+                        <div class="flex items-center">
+                            <div class="bg-purple-500/20 w-10 h-10 rounded-full flex items-center justify-center mr-3">
+                                <i class="fas fa-user text-purple-400"></i>
+                            </div>
+                            <div>
+                                <p class="font-medium">{{ user.full_name or 'Nomsiz' }}</p>
+                                <p class="text-gray-400 text-sm">@{{ user.username or 'username_yoq' }}</p>
+                            </div>
+                        </div>
+                        <div class="text-right text-sm text-gray-400">
+                            {% if user.is_registered %}
+                            <span class="text-green-400">✅</span>
+                            {% else %}
+                            <span class="text-gray-500">❌</span>
+                            {% endif %}
+                            {{ user.course }}-kurs
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+{% endblock %}
