@@ -55,6 +55,10 @@ SAMPLE_CHANNEL = "@thecuriosityproject"
 SAMPLE_REFERAT_MSG_ID = 6
 SAMPLE_KURS_MSG_ID = 7
 
+# Majburiy obuna
+REQUIRED_CHANNEL = "@talabago"
+REQUIRED_CHANNEL_URL = "https://t.me/talabago"
+
 
 class RegistrationState(StatesGroup):
     entering_name = State()
@@ -79,6 +83,26 @@ class BroadcastState(StatesGroup):
 
 class AdminState(StatesGroup):
     replacing_file = State()
+
+
+# ==================== SUBSCRIPTION CHECK ====================
+
+async def check_subscription(bot, user_id: int) -> bool:
+    """Kanalga obuna bo'lganligini tekshirish."""
+    try:
+        member = await bot.get_chat_member(chat_id=REQUIRED_CHANNEL, user_id=user_id)
+        return member.status in ['member', 'administrator', 'creator']
+    except Exception:
+        return False
+
+
+def subscribe_keyboard():
+    """Kanalga obuna bo'lish tugmasi."""
+    from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="📢 Kanalga qo'shilish", url=REQUIRED_CHANNEL_URL)],
+        [InlineKeyboardButton(text="✅ Tekshirish", callback_data="check_subscription")]
+    ])
 
 
 # ==================== /start — REGISTRATION ====================
@@ -129,6 +153,17 @@ async def cmd_start(message: Message, state: FSMContext):
 
 
 async def show_main_menu(message: Message):
+    # Kanalga obuna tekshirish
+    is_subscribed = await check_subscription(message.bot, message.from_user.id)
+    
+    if not is_subscribed:
+        await message.answer(
+            "📢 <b>Botdan foydalanish uchun kanalimizga obuna bo'ling!</b>\n\n"
+            "👇 Quyidagi tugmani bosib kanalga qo'shiling, so'ng «Tekshirish» tugmasini bosing.",
+            reply_markup=subscribe_keyboard()
+        )
+        return
+    
     welcome_text = """
 🎓 <b>TalabaGo</b> — Talabalar yordamchisi!
 
@@ -142,6 +177,32 @@ Biz sizga ilmiy ishlar yozishda yordam beramiz:
 ⚡ Tez • ✨ Sifatli • 💰 Arzon
 """
     await message.answer(welcome_text, reply_markup=main_menu_keyboard())
+
+
+@router.callback_query(F.data == "check_subscription")
+async def check_subscription_callback(callback: CallbackQuery):
+    """Obuna tekshirish tugmasi bosilganda."""
+    is_subscribed = await check_subscription(callback.bot, callback.from_user.id)
+    
+    if is_subscribed:
+        await callback.answer("✅ Obuna tasdiqlandi!", show_alert=True)
+        await callback.message.delete()
+        
+        welcome_text = """
+🎓 <b>TalabaGo</b> — Talabalar yordamchisi!
+
+Biz sizga ilmiy ishlar yozishda yordam beramiz:
+
+📝 <b>Referat</b> — 7,000 so'm (10-20 bet)
+📚 <b>Kurs ishi</b> — 15,000 so'm (15-30 bet)
+🎓 <b>Diplom ishi</b> — Tez kunda
+📊 <b>Prezentatsiya</b> — Tez kunda
+
+⚡ Tez • ✨ Sifatli • 💰 Arzon
+"""
+        await callback.message.answer(welcome_text, reply_markup=main_menu_keyboard())
+    else:
+        await callback.answer("❌ Siz hali kanalga obuna bo'lmadingiz!", show_alert=True)
 
 
 # ==================== REGISTRATION FLOW ====================
@@ -470,6 +531,17 @@ async def admin_broadcast_cancel(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "new_order")
 async def new_order(callback: CallbackQuery, state: FSMContext):
+    # Kanalga obuna tekshirish
+    is_subscribed = await check_subscription(callback.bot, callback.from_user.id)
+    if not is_subscribed:
+        await callback.message.edit_text(
+            "📢 <b>Botdan foydalanish uchun kanalimizga obuna bo'ling!</b>\n\n"
+            "👇 Quyidagi tugmani bosib kanalga qo'shiling, so'ng «Tekshirish» tugmasini bosing.",
+            reply_markup=subscribe_keyboard()
+        )
+        await callback.answer()
+        return
+    
     # Ro'yxatdan o'tganmi tekshirish
     is_registered = await db_service.is_user_registered(callback.from_user.id)
     if not is_registered:
